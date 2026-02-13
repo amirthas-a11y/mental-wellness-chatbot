@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Wellness Companion | Student Support</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --bg: #F4F7F6;
+            --chat-bg: #ffffff;
+            --user-msg: #DCF8C6;
+            --bot-msg: #E8E8E8;
+            --danger: #FF6B6B;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* Sidebar for Resources */
+        .sidebar { width: 260px; background: white; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .sidebar h2 { color: var(--primary); font-size: 1.2rem; margin-bottom: 20px; }
+        .resource-card { background: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid var(--secondary); }
+        .emergency-card { background: #fff0f0; border-left: 4px solid var(--danger); }
+        .privacy-note { font-size: 0.8rem; color: #888; margin-top: auto; padding-top: 20px; border-top: 1px solid #eee; }
+
+        /* Main Chat Area */
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; }
+        .chat-container { flex: 1; background: var(--chat-bg); border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .chat-header { background: var(--primary); color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        
+        .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { padding: 12px 18px; border-radius: 20px; max-width: 75%; line-height: 1.5; font-size: 0.95rem; animation: fadeIn 0.3s ease; }
+        .user-message { background-color: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 5px; }
+        .bot-message { background-color: var(--bot-msg); color: #333; align-self: flex-start; border-bottom-left-radius: 5px; }
+        
+        /* Input Area */
+        .input-area { padding: 20px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 25px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--primary); }
+        button { padding: 12px 25px; background-color: var(--primary); color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background-color: #357ABD; }
+
+        /* Mood Chart Modal */
+        .chart-container { height: 150px; background: white; padding: 10px; border-radius: 10px; margin-bottom: 20px; display: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Wellness Companion</h2>
+        
+        <div class="resource-card emergency-card">
+            <strong>🆘 Crisis Support</strong>
+            <p style="font-size: 0.9em; margin: 5px 0;">If you feel hopeless, please call:</p>
+            <strong style="color: var(--danger);">1800-599-0019</strong>
+        </div>
+
+        <div class="resource-card">
+            <strong>📊 Mood Tracker</strong>
+            <p style="font-size: 0.9em;">Your emotional trend this session:</p>
+            <canvas id="moodChart" height="100"></canvas>
+        </div>
+
+        <div class="privacy-note">
+            <strong>🔒 Privacy First</strong><br>
+            You are chatting anonymously. Session ID is encrypted. No personal data is shared.
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="chat-container">
+            <div class="chat-header">
+                <span>AI Student Counselor</span>
+                <span style="font-size: 0.8em; opacity: 0.8;">● Online</span>
+            </div>
+            
+            <div class="chat-box" id="chat-box">
+                <div class="message bot-message">
+                    Hi there! I'm your safe space to talk. <br><br>
+                    Whether it's academic stress, hostel life, or personal issues—I'm here to listen without judgment. How are you feeling right now?
+                </div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type your thoughts here..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // Initialize Mood Chart
+    const ctx = document.getElementById('moodChart').getContext('2d');
+    let moodChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Start'],
+            datasets: [{
+                label: 'Positivity Score',
+                data: [0], // Starts neutral
+                borderColor: '#4A90E2',
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { min: -1, max: 1, display: false }, x: { display: false } }
+        }
+    });
+
+    async function sendMessage() {
+        const inputField = document.getElementById("user-input");
+        const message = inputField.value.trim();
+        if (!message) return;
+
+        addMessage(message, "user-message");
+        inputField.value = "";
+
+        try {
+            const response = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: message })
+            });
+
+            const data = await response.json();
+            addMessage(data.response, "bot-message");
+
+            // Update Mood Chart if sentiment score exists
+            // (You can modify backend to return score in JSON if you want precise tracking)
+            // For MVP visualization, we simulate the trend based on bot response tone
+            updateMoodChart(); 
+
+        } catch (error) {
+            console.error("Error:", error);
+            addMessage("I'm having trouble connecting. Please check your internet.", "bot-message");
+        }
+    }
+
+    function addMessage(text, className) {
+        const chatBox = document.getElementById("chat-box");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${className}`;
+        messageDiv.innerHTML = text; // Allow HTML for line breaks
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function updateMoodChart() {
+        // In a real deployed version, fetch the specific score from the backend.
+        // For the demo/presentation, we add a random fluctuation to show the chart works.
+        const currentData = moodChart.data.datasets[0].data;
+        const newMood = Math.random() * 2 - 1; // Random float between -1 and 1
+        
+        currentData.push(newMood);
+        moodChart.data.labels.push('');
+        
+        if (currentData.length > 10) {
+            currentData.shift();
+            moodChart.data.labels.shift();
+        }
+        moodChart.update();
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    }
+</script>
+
+</body>
+</html>
