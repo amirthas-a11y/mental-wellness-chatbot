@@ -2,39 +2,27 @@ import os
 import sqlite3
 import uuid
 import datetime
-import google.generativeai as genai  # <--- NEW: AI Library
+import google.generativeai as genai
 from flask import Flask, render_template, request, jsonify, session
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
-# 🔴 IMPORTANT: Replace with your actual API Key from Google AI Studio
-GENAI_API_KEY = "AIzaSyBoVYEgH8sSw5s-WtpblGxom4FTSfRxvIw"
+# Use the fallback key if Render's secret key isn't found
+API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBoVYEgH8sSw5s-WtpblGxom4FTSfRxvIw")
 
-# Configure the AI
-genai.configure(api_key=GENAI_API_KEY)
+genai.configure(api_key=API_KEY)
+
+# Use the stable 'gemini-pro' model
 model = genai.GenerativeModel('gemini-pro')
 
-# System instructions: Tells the AI how to behave
-SYSTEM_INSTRUCTION = (
-    "You are a compassionate, empathetic mental wellness companion for college students. "
-    "Your name is 'Wellness Companion'. "
-    "Keep your responses short (2-3 sentences max), warm, and supportive. "
-    "Never give medical diagnoses. "
-    "If the user seems stressed, offer simple breathing or grounding techniques. "
-    "If the user mentions self-harm or suicide, kindly but firmly urge them to seek professional help immediately."
-)
-
 # --- PATH SETUP ---
-# Get the base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_FOLDER, "chats.db")
 
-# Ensure data folder exists
 if not os.path.exists(DATA_FOLDER):
     os.makedirs(DATA_FOLDER)
 
-# Initialize Flask
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
@@ -62,7 +50,6 @@ init_db()
 def create_session():
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
-    # Initialize history for the AI memory
     if "history" not in session:
         session["history"] = []
 
@@ -77,8 +64,7 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't catch that. Could you say it again?"})
 
-    # --- 1. LOCAL SAFETY CHECK (Must stay for your Project Grade!) ---
-    # We check for crisis keywords LOCALLY to ensure the red safety box triggers.
+    # --- 1. LOCAL SAFETY CHECK ---
     crisis_words = ["suicide", "kill myself", "self-harm", "hopeless", "end my life", "die", "death"]
     
     if any(word in user_message.lower() for word in crisis_words):
@@ -88,33 +74,37 @@ def chat():
             "You are not alone."
         )
         sentiment_score = -0.9
-        # Don't send this to AI, handle it immediately for safety
         save_chat(user_message, bot_response, sentiment_score)
         return jsonify({"response": bot_response})
 
-    # --- 2. SENTIMENT ANALYSIS (For the Mood Tracker Graph) ---
+    # --- 2. SENTIMENT ANALYSIS ---
     sentiment = analyzer.polarity_scores(user_message)
     sentiment_score = sentiment["compound"]
 
     # --- 3. GENERATE REAL AI RESPONSE ---
     try:
-        # Retrieve history to give the AI context
+        # Retrieve history
         history = session.get("history", [])
         
         # Start chat with history
         chat_session = model.start_chat(history=history)
         
-        # Send message with system instruction
-        full_prompt = f"{SYSTEM_INSTRUCTION}\n\nUser: {user_message}"
-        response = chat_session.send_message(full_prompt)
+        # SYSTEM INSTRUCTION (Manually added only for the current turn to avoid confusion)
+        system_instruction = (
+            "You are a compassionate, empathetic mental wellness companion for college students. "
+            "Your name is 'Wellness Companion'. "
+            "Keep your responses short (2-3 sentences max), warm, and supportive. "
+            "If the user says 'hi', simply welcome them warmly. "
+            "Never give medical diagnoses."
+        )
+
+        # We combine the instruction + user message, but we DON'T save the instruction to history
+        full_prompt = f"{system_instruction}\n\nUser said: {user_message}"
         
+        response = chat_session.send_message(full_prompt)
         bot_response = response.text
         
-        # Update history (keep only last 5 exchanges to save memory)
-        # We need to convert objects to dictionaries for session storage if needed, 
-        # but Gemini uses a specific object format. 
-        # For simplicity in this session storage, we recreate the history object next time.
-        # A simpler way for session storage is just appending text:
+        # Update history with just the CLEAN message (no instructions)
         history.append({"role": "user", "parts": [user_message]})
         history.append({"role": "model", "parts": [bot_response]})
         
@@ -124,12 +114,9 @@ def chat():
         session["history"] = history
 
     except Exception as e:
-        print(f"AI Error: {e}")
-        # Fallback if AI fails (e.g., no internet or quota limit)
-        if sentiment_score < -0.5:
-             bot_response = "I'm having trouble connecting to my brain, but I sense you are stressed. Take a deep breath."
-        else:
-             bot_response = "I'm having a little trouble connecting right now. Can you try again?"
+        # IMPORTANT: This prints the REAL error to the logs so we can see it
+        print(f"------------ AI ERROR ------------\n{e}\n----------------------------------")
+        bot_response = "I'm having a little trouble connecting right now. Can you try again?"
 
     # --- 4. SAVE & RETURN ---
     save_chat(user_message, bot_response, sentiment_score)
@@ -147,6 +134,5 @@ def save_chat(user_msg, bot_resp, score):
         print(f"Database error: {e}")
 
 if __name__ == "__main__":
-    # This keeps your Render configuration perfect
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
