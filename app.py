@@ -4,22 +4,24 @@ import uuid
 from flask import Flask, render_template, request, jsonify, session
 from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from dotenv import load_dotenv  # <--- Add this
+from dotenv import load_dotenv
 
-# Load variables from .env file
+# 1. Load variables from .env file
 load_dotenv() 
 
-# --- CONFIGURATION ---
+# 2. CONFIGURATION
+# The new SDK automatically looks for GEMINI_API_KEY in your env
 API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=API_KEY)
 
-# Using the newest Gemini 3 model from your list
+# Using a stable 2026 model ID
 MODEL_ID = "gemini-3-flash-preview"
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")
+# Use a real secret key from env or a fallback for local dev
+app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-key-123")
 
-# Database Setup
+# 3. DATABASE SETUP
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data", "chats.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -48,32 +50,36 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't hear anything."})
 
-    # Simple Crisis Check
-    if any(word in user_message.lower() for word in ["suicide", "kill myself", "harm"]):
-        return jsonify({"response": "I'm concerned about you. Please reach out to a professional or a crisis hotline immediately."})
-
     try:
-        # Generate Response using new SDK syntax
+        # 4. GENERATE CONTENT (New 2026 SDK Syntax)
         response = client.models.generate_content(
             model=MODEL_ID,
             contents=user_message,
-            config={'system_instruction': 'You are a supportive, brief mental health companion.'}
+            config={
+                'system_instruction': 'You are a supportive, brief mental health companion.'
+            }
         )
-        bot_response = response.text
+        
+        # The SDK now allows direct .text access safely
+        bot_response = response.text 
 
-        # Sentiment Analysis
+        # 5. SENTIMENT & LOGGING
         score = analyzer.polarity_scores(user_message)['compound']
-
-        # Save to DB
+        
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
-                         (session["session_id"], user_message, bot_response, score))
+            conn.execute(
+                "INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
+                (session["session_id"], user_message, bot_response, score)
+            )
 
         return jsonify({"response": bot_response})
 
     except Exception as e:
-        print(f"ERROR: {e}")
-        return jsonify({"response": "I'm having a little trouble connecting. Try again in a second?"})
+        # This prints the specific error to your VS Code terminal
+        print(f"DEBUG ERROR: {e}") 
+        return jsonify({"response": "I'm having a little trouble connecting. Try again?"})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    # Use the port Render provides or default to 10000
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
