@@ -7,13 +7,14 @@ from flask import Flask, render_template, request, jsonify, session
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
-# SECURE SETUP: We get the key from Render's vault
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
 if not API_KEY:
     print("ERROR: API Key not found! Make sure GEMINI_API_KEY is set in Render.")
 
 genai.configure(api_key=API_KEY)
+
+# We start with Flash
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 app = Flask(__name__)
@@ -56,7 +57,6 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't hear that."})
 
-    # Crisis Check
     crisis_words = ["suicide", "kill myself", "die", "death"]
     if any(word in user_message.lower() for word in crisis_words):
         return jsonify({"response": "Please seek help immediately. You are not alone."})
@@ -77,8 +77,19 @@ def chat():
 
     except Exception as e:
         print(f"AI ERROR: {e}")
-        # DEBUG MODE: Show the specific error on the screen
         bot_response = f"DEBUG ERROR: {str(e)}"
+        
+        # --- DETECTIVE MODE START ---
+        # If the model fails, ask Google what models ARE available
+        try:
+            available = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available.append(m.name)
+            bot_response += f"\n\nAVAILABLE MODELS: {', '.join(available)}"
+        except Exception as e2:
+            bot_response += f"\n\nCould not list models: {str(e2)}"
+        # --- DETECTIVE MODE END ---
 
     return jsonify({"response": bot_response})
 
