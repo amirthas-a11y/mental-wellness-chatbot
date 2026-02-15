@@ -11,62 +11,67 @@
             --secondary: #50E3C2;
             --bg: #F4F7F6;
             --chat-bg: #ffffff;
-            --user-msg: #DCF8C6;
-            --bot-msg: #E8E8E8;
+            --user-msg: #4A90E2;
+            --bot-msg: #F0F2F5;
             --danger: #FF6B6B;
         }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
         /* Sidebar for Resources */
-        .sidebar { width: 260px; background: white; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-        .sidebar h2 { color: var(--primary); font-size: 1.2rem; margin-bottom: 20px; }
-        .resource-card { background: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid var(--secondary); }
-        .emergency-card { background: #fff0f0; border-left: 4px solid var(--danger); }
-        .privacy-note { font-size: 0.8rem; color: #888; margin-top: auto; padding-top: 20px; border-top: 1px solid #eee; }
+        .sidebar { width: 280px; background: white; padding: 25px; box-shadow: 2px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; z-index: 10; }
+        .sidebar h2 { color: var(--primary); font-size: 1.4rem; margin-bottom: 25px; margin-top: 0; }
+        .resource-card { background: #f9f9f9; padding: 15px; border-radius: 12px; margin-bottom: 20px; border-left: 5px solid var(--secondary); transition: 0.3s; }
+        .emergency-card { background: #fff0f0; border-left: 5px solid var(--danger); }
+        .resource-card strong { display: block; margin-bottom: 5px; color: #333; }
+        .privacy-note { font-size: 0.8rem; color: #999; margin-top: auto; padding-top: 20px; border-top: 1px solid #eee; }
 
         /* Main Chat Area */
-        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; }
-        .chat-container { flex: 1; background: var(--chat-bg); border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
-        .chat-header { background: var(--primary); color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 25px; position: relative; }
+        .chat-container { flex: 1; background: var(--chat-bg); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+        .chat-header { background: var(--primary); color: white; padding: 18px 25px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
         
-        .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .message { padding: 12px 18px; border-radius: 20px; max-width: 75%; line-height: 1.5; font-size: 0.95rem; animation: fadeIn 0.3s ease; }
-        .user-message { background-color: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 5px; }
-        .bot-message { background-color: var(--bot-msg); color: #333; align-self: flex-start; border-bottom-left-radius: 5px; }
+        .chat-box { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
+        .message { padding: 14px 20px; border-radius: 18px; max-width: 80%; line-height: 1.5; font-size: 0.95rem; animation: fadeIn 0.4s ease forwards; }
+        .user-message { background-color: var(--user-msg); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .bot-message { background-color: var(--bot-msg); color: #333; align-self: flex-start; border-bottom-left-radius: 4px; white-space: pre-wrap; }
         
         /* Input Area */
-        .input-area { padding: 20px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 25px; outline: none; transition: 0.3s; }
-        input:focus { border-color: var(--primary); }
-        button { padding: 12px 25px; background-color: var(--primary); color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { background-color: #357ABD; }
+        .input-area { padding: 20px 25px; background: white; border-top: 1px solid #eee; display: flex; gap: 12px; align-items: center; }
+        input { flex: 1; padding: 14px 22px; border: 1.5px solid #eee; border-radius: 30px; outline: none; transition: 0.3s; font-size: 1rem; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1); }
+        button { padding: 12px 28px; background-color: var(--primary); color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3); }
+        button:hover { background-color: #357ABD; transform: translateY(-1px); }
 
-        /* Mood Chart Modal */
-        .chart-container { height: 150px; background: white; padding: 10px; border-radius: 10px; margin-bottom: 20px; display: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Custom Scrollbar */
+        .chat-box::-webkit-scrollbar { width: 6px; }
+        .chat-box::-webkit-scrollbar-track { background: transparent; }
+        .chat-box::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h2>Wellness Companion</h2>
+        <h2>Wellness Buddy</h2>
         
         <div class="resource-card emergency-card">
-            <strong>🆘 Crisis Support</strong>
-            <p style="font-size: 0.9em; margin: 5px 0;">If you feel hopeless, please call:</p>
-            <strong style="color: var(--danger);">1800-599-0019</strong>
+            <strong>🆘 24/7 Helpline</strong>
+            <p style="font-size: 0.85em; margin: 5px 0;">Struggling? Talk to a pro:</p>
+            <strong style="color: var(--danger); font-size: 1.1em;">1800-599-0019</strong>
         </div>
 
         <div class="resource-card">
-            <strong>📊 Mood Tracker</strong>
-            <p style="font-size: 0.9em;">Your emotional trend this session:</p>
-            <canvas id="moodChart" height="100"></canvas>
+            <strong>📊 Mood Trend</strong>
+            <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">Visualizing your session vibe:</p>
+            <div style="height: 120px;">
+                <canvas id="moodChart"></canvas>
+            </div>
         </div>
 
         <div class="privacy-note">
-            <strong>🔒 Privacy First</strong><br>
-            You are chatting anonymously. Session ID is encrypted. No personal data is shared.
+            <strong>🔒 Anonymous & Secure</strong><br>
+            Your identity is hidden. Data is used only to help you track your wellness journey.
         </div>
     </div>
 
@@ -74,46 +79,70 @@
         <div class="chat-container">
             <div class="chat-header">
                 <span>AI Student Counselor</span>
-                <span style="font-size: 0.8em; opacity: 0.8;">● Online</span>
+                <span style="font-size: 0.8em; opacity: 0.9; display: flex; align-items: center;">
+                    <span style="height: 8px; width: 8px; background: #50E3C2; border-radius: 50%; margin-right: 6px;"></span>
+                    Active Now
+                </span>
             </div>
             
             <div class="chat-box" id="chat-box">
                 <div class="message bot-message">
-                    Hi there! I'm your safe space to talk. <br><br>
-                    Whether it's academic stress, hostel life, or personal issues—I'm here to listen without judgment. How are you feeling right now?
+                    Hi there! I'm your safe space to talk. 🌿<br><br>Whether it's academic stress, hostel life, or personal issues—I'm here to listen. How are you feeling right now?
                 </div>
             </div>
 
             <div class="input-area">
-                <input type="text" id="user-input" placeholder="Type your thoughts here..." onkeypress="handleKeyPress(event)">
+                <input type="text" id="user-input" placeholder="Say what's on your mind..." onkeypress="handleKeyPress(event)">
                 <button onclick="sendMessage()">Send</button>
             </div>
         </div>
     </div>
 
 <script>
-    // Initialize Mood Chart
+    // --- 1. MOOD CHART INITIALIZATION ---
     const ctx = document.getElementById('moodChart').getContext('2d');
     let moodChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: ['Start'],
             datasets: [{
-                label: 'Positivity Score',
-                data: [0], // Starts neutral
+                data: [0], 
                 borderColor: '#4A90E2',
+                backgroundColor: 'rgba(74, 144, 226, 0.1)',
+                fill: true,
                 tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 0
+                borderWidth: 3,
+                pointRadius: 4,
+                pointBackgroundColor: '#fff'
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { min: -1, max: 1, display: false }, x: { display: false } }
+            scales: { 
+                y: { 
+                    min: -1, 
+                    max: 1, 
+                    display: true,
+                    ticks: {
+                        stepSize: 1,
+                        callback: function(value) {
+                            if (value === 1) return '😊';
+                            if (value === 0) return '😐';
+                            if (value === -1) return '😔';
+                            return '';
+                        },
+                        font: { size: 16 }
+                    },
+                    grid: { display: false }
+                }, 
+                x: { display: false } 
+            }
         }
     });
 
+    // --- 2. CHAT LOGIC ---
     async function sendMessage() {
         const inputField = document.getElementById("user-input");
         const message = inputField.value.trim();
@@ -132,14 +161,14 @@
             const data = await response.json();
             addMessage(data.response, "bot-message");
 
-            // Update Mood Chart if sentiment score exists
-            // (You can modify backend to return score in JSON if you want precise tracking)
-            // For MVP visualization, we simulate the trend based on bot response tone
-            updateMoodChart(); 
+            // Update chart with REAL score from backend
+            if(data.score !== undefined) {
+                updateMoodChart(data.score);
+            }
 
         } catch (error) {
             console.error("Error:", error);
-            addMessage("I'm having trouble connecting. Please check your internet.", "bot-message");
+            addMessage("I'm having trouble connecting. Try again?", "bot-message");
         }
     }
 
@@ -147,24 +176,26 @@
         const chatBox = document.getElementById("chat-box");
         const messageDiv = document.createElement("div");
         messageDiv.className = `message ${className}`;
-        messageDiv.innerHTML = text; // Allow HTML for line breaks
+        messageDiv.innerHTML = text;
         chatBox.appendChild(messageDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    function updateMoodChart() {
-        // In a real deployed version, fetch the specific score from the backend.
-        // For the demo/presentation, we add a random fluctuation to show the chart works.
+    function updateMoodChart(newScore) {
         const currentData = moodChart.data.datasets[0].data;
-        const newMood = Math.random() * 2 - 1; // Random float between -1 and 1
-        
-        currentData.push(newMood);
+        currentData.push(newScore);
         moodChart.data.labels.push('');
         
         if (currentData.length > 10) {
             currentData.shift();
             moodChart.data.labels.shift();
         }
+        
+        // Dynamic Colors
+        if (newScore > 0) moodChart.data.datasets[0].borderColor = '#50E3C2';
+        else if (newScore < 0) moodChart.data.datasets[0].borderColor = '#FF6B6B';
+        else moodChart.data.datasets[0].borderColor = '#4A90E2';
+
         moodChart.update();
     }
 
