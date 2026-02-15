@@ -103,10 +103,13 @@
 
     // 2. Chat Functions
     async function send() {
+        const btn = document.querySelector(".input-area button");
         const input = document.getElementById("user-input");
         const val = input.value.trim();
-        if(!val) return;
+        
+        if(!val || btn.disabled) return;
 
+        btn.disabled = true; // Prevents double-clicking and spamming the API
         addMsg(val, 'user');
         input.value = "";
 
@@ -117,11 +120,15 @@
                 body: JSON.stringify({message: val})
             });
             const data = await res.json();
+            
             addMsg(data.response, 'bot');
             updateChart(data.score);
-        } catch (err) {
-            console.error("Chat error:", err);
-            addMsg("Connection lost. Try again, bro.", 'bot');
+        } catch (error) {
+            console.error("Error:", error);
+            addMsg("System's a bit tired. Let's try again?", 'bot');
+        } finally {
+            // Re-enable button after 2 seconds to respect Gemini API rate limits
+            setTimeout(() => { btn.disabled = false; }, 2000);
         }
     }
 
@@ -135,13 +142,12 @@
     }
 
     function updateChart(score) {
-        console.log("Updating chart with score:", score); // Check your browser console
+        console.log("New Sentiment Score:", score);
         
-        // Add new label and new score
         moodChart.data.labels.push('');
         moodChart.data.datasets[0].data.push(score);
 
-        // Keep it clean: only show last 8 messages
+        // Keep the chart looking good by only showing the last 8 data points
         if(moodChart.data.labels.length > 8) {
             moodChart.data.labels.shift();
             moodChart.data.datasets[0].data.shift();
