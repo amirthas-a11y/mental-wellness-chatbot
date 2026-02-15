@@ -7,15 +7,16 @@ from flask import Flask, render_template, request, jsonify, session
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
-# This line tries to get the key from Render. 
-# If Render doesn't have it, it uses your specific key (the second part).
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBoVYEgH8sSw5s-WtpblGxom4FTSfRxvIw")
+# PASTE YOUR NEW KEY BELOW where it says PASTE_HERE
+# (Keep the quote marks!)
+MY_NEW_KEY = "PASTE_HERE" 
 
-# Configure the AI
+# We try the environment key first, then your new hardcoded key
+API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBQqtyaDWPESpJSXBk67kwjXPM8e9pf6CU")
+
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# --- APP SETUP ---
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
@@ -24,20 +25,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_FOLDER, "chats.db")
 
-# Ensure Data Folder Exists
 if not os.path.exists(DATA_FOLDER):
     os.makedirs(DATA_FOLDER)
 
-# Database Setup
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS chats (
+    c.execute("""CREATE TABLE IF NOT EXISTS chats (
             session_id TEXT, user_message TEXT, bot_response TEXT, 
-            sentiment_score REAL, timestamp TEXT
-        )
-    """)
+            sentiment_score REAL, timestamp TEXT)""")
     conn.commit()
     conn.close()
 
@@ -51,7 +47,6 @@ def create_session():
     if "history" not in session:
         session["history"] = []
 
-# --- ROUTES ---
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -62,46 +57,32 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't hear that."})
 
-    # 1. Safety Check
-    crisis_words = ["suicide", "kill myself", "die", "death", "end it"]
+    # Local Safety Check
+    crisis_words = ["suicide", "kill myself", "die", "death"]
     if any(word in user_message.lower() for word in crisis_words):
-        return jsonify({"response": "I am concerned for your safety. Please contact a crisis helpline immediately."})
+        return jsonify({"response": "Please seek help immediately. You are not alone."})
 
-    # 2. Sentiment
-    score = analyzer.polarity_scores(user_message)["compound"]
+    sentiment_score = analyzer.polarity_scores(user_message)["compound"]
 
-    # 3. AI Response
     try:
-        # Get history
         history = session.get("history", [])
         chat = model.start_chat(history=history)
         
-        # System Instruction Prompt
-        instruction = "You are a warm, empathetic mental health companion for students. Keep answers short (2 sentences)."
-        full_prompt = f"{instruction}\n\nUser: {user_message}"
+        system_instruction = "You are a supportive mental health companion. Keep answers short."
+        full_prompt = f"{system_instruction}\n\nUser: {user_message}"
         
         response = chat.send_message(full_prompt)
         bot_response = response.text
 
-        # Update History
         history.append({"role": "user", "parts": [user_message]})
         history.append({"role": "model", "parts": [bot_response]})
-        session["history"] = history[-10:] # Keep last 10 messages
+        session["history"] = history[-10:]
 
     except Exception as e:
-        print(f"ERROR: {e}") # Print error to logs
-        bot_response = "I'm having trouble connecting to the server. Please try again."
-
-    # 4. Save to DB
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("INSERT INTO chats VALUES (?, ?, ?, ?, ?)", 
-                  (session["session_id"], user_message, bot_response, score, str(datetime.datetime.now())))
-        conn.commit()
-        conn.close()
-    except:
-        pass
+        # --- DEBUG MODE: SHOW ERROR IN CHAT ---
+        print(f"AI ERROR: {e}")
+        # This puts the ACTUAL error on your screen
+        bot_response = f"SYSTEM ERROR: {str(e)}"
 
     return jsonify({"response": bot_response})
 
