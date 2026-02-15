@@ -17,7 +17,7 @@ load_dotenv()
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # IMPORTANT: Use the 2026 Stable Name
-MODEL_ID = "gemini-2.0-flash" 
+MODEL_ID = "gemini-1.5-flash" 
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")
