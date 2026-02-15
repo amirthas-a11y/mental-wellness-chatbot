@@ -1,10 +1,5 @@
 import os
-# DEBUG: This will print to your Render logs (not the browser)
-print(f"DEBUG: GEMINI_API_KEY is set: {bool(os.environ.get('GEMINI_API_KEY'))}")
-if os.environ.get('GEMINI_API_KEY'):
-    print(f"DEBUG: Key starts with: {os.environ.get('GEMINI_API_KEY')[:5]}...")
 import sqlite3
-import uuid
 from flask import Flask, render_template, request, jsonify, session
 from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -13,12 +8,7 @@ from dotenv import load_dotenv
 load_dotenv() 
 
 # --- CONFIGURATION ---
-# In 2026, the SDK is 'google-genai', NOT 'google-generativeai'
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
-# IMPORTANT: Use the 2026 Stable Name
-MODEL_ID = "gemma-3-27b-it"
-
+MODEL_ID = "gemma-3-27b-it" 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")
 
@@ -46,19 +36,17 @@ def chat():
     if not user_message: return jsonify({"response": "..."})
 
     try:
-        # 2026 SDK Syntax: client.models.generate_content
+        # Initialize client inside the route to ensure API key is fresh
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        
         response = client.models.generate_content(
             model=MODEL_ID,
             contents=user_message
         )
         
-        # New SDK returns text directly
         bot_response = response.text 
-
-        # Sentiment Analysis
         score = analyzer.polarity_scores(user_message)['compound']
 
-        # Save to DB
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
                          (session.get("session_id", "anon"), user_message, bot_response, score))
@@ -66,9 +54,9 @@ def chat():
         return jsonify({"response": bot_response})
 
     except Exception as e:
-        # This will show you exactly what's wrong in the terminal
-        print(f"DEBUG: {e}")
-        return jsonify({"response": "Connection issue. Check terminal for error!"})
+        # This helps us see errors in Render Logs if something breaks later
+        print(f"ERROR: {e}")
+        return jsonify({"response": "I'm having a brief connection moment. Please try again in a few seconds!"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
