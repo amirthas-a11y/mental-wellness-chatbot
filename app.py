@@ -38,13 +38,17 @@ def chat():
     try:
         client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         
-        # We add 'config' here to limit the length and set the vibe
+        # We bake the instructions directly into the message for Gemma
+        persona_prompt = f"""Instruction: You are a chill, supportive wellness buddy. 
+        Keep your response under 2 sentences. Be concise and friendly.
+        
+        User says: {user_message}"""
+
         response = client.models.generate_content(
             model=MODEL_ID,
-            contents=user_message,
+            contents=persona_prompt,
             config={
-                "system_instruction": "You are a chill, supportive mental wellness buddy. Give very short, concise, and 'to-the-point' answers. Use emojis sparingly. Avoid long lists or essay-style advice unless specifically asked.",
-                "max_output_tokens": 150  # This physically stops the bot from talking too much
+                "max_output_tokens": 100 # Tight limit for short answers
             }
         )
         
@@ -59,7 +63,7 @@ def chat():
 
     except Exception as e:
         print(f"ERROR: {e}")
-        return jsonify({"response": "Short connection glitch! Try again?"})
+        return jsonify({"response": "I'm having a quick reset. Try again in 5 seconds?"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
