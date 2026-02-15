@@ -7,20 +7,18 @@ from flask import Flask, render_template, request, jsonify, session
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
-# PASTE YOUR NEW KEY BELOW where it says PASTE_HERE
-# (Keep the quote marks!)
-MY_NEW_KEY = "PASTE_HERE" 
+# (Make sure your Key is still here!)
+MY_NEW_KEY = "AIzaSyBQqtyaDWPESpJSXBk67kwjXPM8e9pf6CU" 
 
-# We try the environment key first, then your new hardcoded key
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBQqtyaDWPESpJSXBk67kwjXPM8e9pf6CU")
-
+API_KEY = os.environ.get("GEMINI_API_KEY", MY_NEW_KEY)
 genai.configure(api_key=API_KEY)
+
+# We start with Flash, but if it fails, the code below will tell us why
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-# Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_FOLDER, "chats.db")
@@ -57,12 +55,9 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't hear that."})
 
-    # Local Safety Check
     crisis_words = ["suicide", "kill myself", "die", "death"]
     if any(word in user_message.lower() for word in crisis_words):
         return jsonify({"response": "Please seek help immediately. You are not alone."})
-
-    sentiment_score = analyzer.polarity_scores(user_message)["compound"]
 
     try:
         history = session.get("history", [])
@@ -79,10 +74,20 @@ def chat():
         session["history"] = history[-10:]
 
     except Exception as e:
-        # --- DEBUG MODE: SHOW ERROR IN CHAT ---
         print(f"AI ERROR: {e}")
-        # This puts the ACTUAL error on your screen
         bot_response = f"SYSTEM ERROR: {str(e)}"
+        
+        # --- DETECTIVE MODE START ---
+        # If the model fails, ask Google what models ARE available
+        try:
+            available = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available.append(m.name)
+            bot_response += f"\n\nAVAILABLE MODELS FOUND: {', '.join(available)}"
+        except Exception as e2:
+            bot_response += f"\n\nCould not list models: {str(e2)}"
+        # --- DETECTIVE MODE END ---
 
     return jsonify({"response": bot_response})
 
