@@ -36,12 +36,16 @@ def chat():
     if not user_message: return jsonify({"response": "..."})
 
     try:
-        # Initialize client inside the route to ensure API key is fresh
         client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         
+        # We add 'config' here to limit the length and set the vibe
         response = client.models.generate_content(
             model=MODEL_ID,
-            contents=user_message
+            contents=user_message,
+            config={
+                "system_instruction": "You are a chill, supportive mental wellness buddy. Give very short, concise, and 'to-the-point' answers. Use emojis sparingly. Avoid long lists or essay-style advice unless specifically asked.",
+                "max_output_tokens": 150  # This physically stops the bot from talking too much
+            }
         )
         
         bot_response = response.text 
@@ -54,9 +58,8 @@ def chat():
         return jsonify({"response": bot_response})
 
     except Exception as e:
-        # This helps us see errors in Render Logs if something breaks later
         print(f"ERROR: {e}")
-        return jsonify({"response": "I'm having a brief connection moment. Please try again in a few seconds!"})
+        return jsonify({"response": "Short connection glitch! Try again?"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
