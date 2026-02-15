@@ -14,8 +14,8 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-# We start with Flash
-model = genai.GenerativeModel('gemini-1.5-flash')
+# UPDATED: Using the newer model available in your account
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -57,6 +57,7 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't hear that."})
 
+    # Crisis Check
     crisis_words = ["suicide", "kill myself", "die", "death"]
     if any(word in user_message.lower() for word in crisis_words):
         return jsonify({"response": "Please seek help immediately. You are not alone."})
@@ -77,19 +78,8 @@ def chat():
 
     except Exception as e:
         print(f"AI ERROR: {e}")
-        bot_response = f"DEBUG ERROR: {str(e)}"
-        
-        # --- DETECTIVE MODE START ---
-        # If the model fails, ask Google what models ARE available
-        try:
-            available = []
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available.append(m.name)
-            bot_response += f"\n\nAVAILABLE MODELS: {', '.join(available)}"
-        except Exception as e2:
-            bot_response += f"\n\nCould not list models: {str(e2)}"
-        # --- DETECTIVE MODE END ---
+        # Polite fallback message for the user
+        bot_response = "I'm having trouble connecting to my brain right now. Please try again in a moment."
 
     return jsonify({"response": bot_response})
 
