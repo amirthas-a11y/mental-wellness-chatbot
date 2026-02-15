@@ -7,18 +7,19 @@ from flask import Flask, render_template, request, jsonify, session
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
-# (Make sure your Key is still here!)
-MY_NEW_KEY = "AIzaSyBQqtyaDWPESpJSXBk67kwjXPM8e9pf6CU" 
+# SECURE SETUP: We get the key from Render's vault
+API_KEY = os.environ.get("GEMINI_API_KEY")
 
-API_KEY = os.environ.get("GEMINI_API_KEY", MY_NEW_KEY)
+if not API_KEY:
+    print("ERROR: API Key not found! Make sure GEMINI_API_KEY is set in Render.")
+
 genai.configure(api_key=API_KEY)
-
-# We start with Flash, but if it fails, the code below will tell us why
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
+# Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_FOLDER, "chats.db")
@@ -55,6 +56,7 @@ def chat():
     if not user_message:
         return jsonify({"response": "I didn't hear that."})
 
+    # Crisis Check
     crisis_words = ["suicide", "kill myself", "die", "death"]
     if any(word in user_message.lower() for word in crisis_words):
         return jsonify({"response": "Please seek help immediately. You are not alone."})
@@ -74,20 +76,9 @@ def chat():
         session["history"] = history[-10:]
 
     except Exception as e:
+        # If the key is invalid, this will tell us
         print(f"AI ERROR: {e}")
-        bot_response = f"SYSTEM ERROR: {str(e)}"
-        
-        # --- DETECTIVE MODE START ---
-        # If the model fails, ask Google what models ARE available
-        try:
-            available = []
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available.append(m.name)
-            bot_response += f"\n\nAVAILABLE MODELS FOUND: {', '.join(available)}"
-        except Exception as e2:
-            bot_response += f"\n\nCould not list models: {str(e2)}"
-        # --- DETECTIVE MODE END ---
+        bot_response = "I'm having trouble connecting to my brain right now. Please try again in a moment."
 
     return jsonify({"response": bot_response})
 
