@@ -76,9 +76,9 @@ def chat():
         session["history"] = history[-10:]
 
     except Exception as e:
-        # If the key is invalid, this will tell us
         print(f"AI ERROR: {e}")
-        bot_response = "I'm having trouble connecting to my brain right now. Please try again in a moment."
+        # DEBUG MODE: Show the specific error on the screen
+        bot_response = f"DEBUG ERROR: {str(e)}"
 
     return jsonify({"response": bot_response})
 
