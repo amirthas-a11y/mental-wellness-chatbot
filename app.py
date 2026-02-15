@@ -1,41 +1,34 @@
 import os
 import sqlite3
 import uuid
-import datetime
-import google.generativeai as genai
 from flask import Flask, render_template, request, jsonify, session
+from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from dotenv import load_dotenv  # <--- Add this
+
+# Load variables from .env file
+load_dotenv() 
 
 # --- CONFIGURATION ---
 API_KEY = os.environ.get("GEMINI_API_KEY")
+client = genai.Client(api_key=API_KEY)
 
-if not API_KEY:
-    print("ERROR: API Key not found! Make sure GEMINI_API_KEY is set in Render.")
-
-genai.configure(api_key=API_KEY)
-
-# UPDATED: Using the newer model available in your account
-model = genai.GenerativeModel('gemini-2.5-flash')
+# Using the newest Gemini 3 model from your list
+MODEL_ID = "gemini-3-flash-preview"
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")
 
-# Paths
+# Database Setup
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_FOLDER = os.path.join(BASE_DIR, "data")
-DB_PATH = os.path.join(DATA_FOLDER, "chats.db")
-
-if not os.path.exists(DATA_FOLDER):
-    os.makedirs(DATA_FOLDER)
+DB_PATH = os.path.join(BASE_DIR, "data", "chats.db")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS chats (
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS chats (
             session_id TEXT, user_message TEXT, bot_response TEXT, 
-            sentiment_score REAL, timestamp TEXT)""")
-    conn.commit()
-    conn.close()
+            sentiment_score REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)""")
 
 init_db()
 analyzer = SentimentIntensityAnalyzer()
@@ -44,8 +37,6 @@ analyzer = SentimentIntensityAnalyzer()
 def create_session():
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
-    if "history" not in session:
-        session["history"] = []
 
 @app.route("/")
 def home():
@@ -55,34 +46,34 @@ def home():
 def chat():
     user_message = request.json.get("message", "").strip()
     if not user_message:
-        return jsonify({"response": "I didn't hear that."})
+        return jsonify({"response": "I didn't hear anything."})
 
-    # Crisis Check
-    crisis_words = ["suicide", "kill myself", "die", "death"]
-    if any(word in user_message.lower() for word in crisis_words):
-        return jsonify({"response": "Please seek help immediately. You are not alone."})
+    # Simple Crisis Check
+    if any(word in user_message.lower() for word in ["suicide", "kill myself", "harm"]):
+        return jsonify({"response": "I'm concerned about you. Please reach out to a professional or a crisis hotline immediately."})
 
     try:
-        history = session.get("history", [])
-        chat = model.start_chat(history=history)
-        
-        system_instruction = "You are a supportive mental health companion. Keep answers short."
-        full_prompt = f"{system_instruction}\n\nUser: {user_message}"
-        
-        response = chat.send_message(full_prompt)
+        # Generate Response using new SDK syntax
+        response = client.models.generate_content(
+            model=MODEL_ID,
+            contents=user_message,
+            config={'system_instruction': 'You are a supportive, brief mental health companion.'}
+        )
         bot_response = response.text
 
-        history.append({"role": "user", "parts": [user_message]})
-        history.append({"role": "model", "parts": [bot_response]})
-        session["history"] = history[-10:]
+        # Sentiment Analysis
+        score = analyzer.polarity_scores(user_message)['compound']
+
+        # Save to DB
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
+                         (session["session_id"], user_message, bot_response, score))
+
+        return jsonify({"response": bot_response})
 
     except Exception as e:
-        print(f"AI ERROR: {e}")
-        # Polite fallback message for the user
-        bot_response = "I'm having trouble connecting to my brain right now. Please try again in a moment."
-
-    return jsonify({"response": bot_response})
+        print(f"ERROR: {e}")
+        return jsonify({"response": "I'm having a little trouble connecting. Try again in a second?"})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
