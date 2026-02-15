@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify
 from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -38,19 +38,19 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_message = request.json.get("message", "").strip()
+    user_data = request.json
+    user_message = user_data.get("message", "").strip()
+    
     if not user_message:
         return jsonify({"response": "I'm listening, bro. Go ahead.", "score": 0})
 
     try:
-        # Get API Key from environment variable
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            return jsonify({"response": "API Key missing! Check your environment variables.", "score": 0})
+            return jsonify({"response": "API Key missing! Check Render environment variables.", "score": 0})
 
         client = genai.Client(api_key=api_key)
         
-        # THE PERSONA: Casual, multilingual, supportive, and safe
         persona = (
             "You are 'Buddy', a chill, empathetic college companion. "
             "Use casual language (bro, yaar, buddy). Support students with hostel life, "
@@ -64,10 +64,10 @@ def chat():
         )
         bot_response = response.text 
 
-        # Real-time Sentiment Tracking
-        score = analyzer.polarity_scores(user_message)['compound']
+        # Correctly calculate sentiment score
+        vs = analyzer.polarity_scores(user_message)
+        score = float(vs['compound']) # Range is -1.0 to 1.0
 
-        # Save to DB for the tracker
         with get_db() as conn:
             conn.execute(
                 "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
@@ -78,8 +78,8 @@ def chat():
         return jsonify({"response": bot_response, "score": score})
 
     except Exception as e:
-        print(f"DEPLOYMENT ERROR: {e}") # This shows in your Render logs
-        return jsonify({"response": "System's a bit tired. Let's try again in a sec?", "score": 0})
+        print(f"ERROR: {e}")
+        return jsonify({"response": "System's a bit tired. Let's try again?", "score": 0})
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
@@ -87,11 +87,10 @@ def clear_history():
         with get_db() as conn:
             conn.execute("DELETE FROM chats")
             conn.commit()
-        return jsonify({"status": "History Nuked! 100% Private."})
+        return jsonify({"status": "History Nuked!"})
     except Exception as e:
-        return jsonify({"status": "Error clearing history"}), 500
+        return jsonify({"status": "Error"}), 500
 
 if __name__ == "__main__":
-    # Important for Render deployment
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
