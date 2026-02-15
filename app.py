@@ -6,22 +6,19 @@ from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from dotenv import load_dotenv
 
-# 1. Load variables from .env file
 load_dotenv() 
 
-# 2. CONFIGURATION
-# The new SDK automatically looks for GEMINI_API_KEY in your env
-API_KEY = os.environ.get("GEMINI_API_KEY")
-client = genai.Client(api_key=API_KEY)
+# --- CONFIGURATION ---
+# In 2026, the SDK is 'google-genai', NOT 'google-generativeai'
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-# Using a stable 2026 model ID
-MODEL_ID = "gemini-3-flash-preview"
+# IMPORTANT: Use the 2026 Stable Name
+MODEL_ID = "gemini-2.0-flash" 
 
 app = Flask(__name__)
-# Use a real secret key from env or a fallback for local dev
-app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-key-123")
+app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")
 
-# 3. DATABASE SETUP
+# Database Setup
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data", "chats.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -35,11 +32,6 @@ def init_db():
 init_db()
 analyzer = SentimentIntensityAnalyzer()
 
-@app.before_request
-def create_session():
-    if "session_id" not in session:
-        session["session_id"] = str(uuid.uuid4())
-
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -47,39 +39,32 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_message = request.json.get("message", "").strip()
-    if not user_message:
-        return jsonify({"response": "I didn't hear anything."})
+    if not user_message: return jsonify({"response": "..."})
 
     try:
-        # 4. GENERATE CONTENT (New 2026 SDK Syntax)
+        # 2026 SDK Syntax: client.models.generate_content
         response = client.models.generate_content(
             model=MODEL_ID,
-            contents=user_message,
-            config={
-                'system_instruction': 'You are a supportive, brief mental health companion.'
-            }
+            contents=user_message
         )
         
-        # The SDK now allows direct .text access safely
+        # New SDK returns text directly
         bot_response = response.text 
 
-        # 5. SENTIMENT & LOGGING
+        # Sentiment Analysis
         score = analyzer.polarity_scores(user_message)['compound']
-        
+
+        # Save to DB
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute(
-                "INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
-                (session["session_id"], user_message, bot_response, score)
-            )
+            conn.execute("INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
+                         (session.get("session_id", "anon"), user_message, bot_response, score))
 
         return jsonify({"response": bot_response})
 
     except Exception as e:
-        # This prints the specific error to your VS Code terminal
-        print(f"DEBUG ERROR: {e}") 
-        return jsonify({"response": "I'm having a little trouble connecting. Try again?"})
+        # This will show you exactly what's wrong in the terminal
+        print(f"DEBUG: {e}")
+        return jsonify({"response": "Connection issue. Check terminal for error!"})
 
 if __name__ == "__main__":
-    # Use the port Render provides or default to 10000
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
