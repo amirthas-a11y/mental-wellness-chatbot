@@ -3,67 +3,95 @@ import sqlite3
 from flask import Flask, render_template, request, jsonify, session
 from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from dotenv import load_dotenv
 
-load_dotenv() 
-
-# --- CONFIGURATION ---
-MODEL_ID = "gemma-3-27b-it" 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")
+app.secret_key = os.environ.get("FLASK_SECRET", "wellness_buddy_2026")
+DB_PATH = "chat_history.db"
 
-# Database Setup
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "data", "chats.db")
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+# Initialize tools
+analyzer = SentimentIntensityAnalyzer()
+MODEL_ID = "gemini-2.0-flash" 
 
 def init_db():
+    """Creates the database table if it doesn't exist."""
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""CREATE TABLE IF NOT EXISTS chats (
-            session_id TEXT, user_message TEXT, bot_response TEXT, 
-            sentiment_score REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)""")
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                user_message TEXT,
+                bot_response TEXT,
+                sentiment_score REAL
+            )
+        ''')
+        conn.commit()
 
+# Initialize DB on startup
 init_db()
-analyzer = SentimentIntensityAnalyzer()
+
+def get_db():
+    return sqlite3.connect(DB_PATH)
 
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
 @app.route("/chat", methods=["POST"])
 def chat():
     user_message = request.json.get("message", "").strip()
-    if not user_message: return jsonify({"response": "..."})
+    if not user_message:
+        return jsonify({"response": "I'm listening, bro. Go ahead.", "score": 0})
 
     try:
-        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        # Get API Key from environment variable
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return jsonify({"response": "API Key missing! Check your environment variables.", "score": 0})
+
+        client = genai.Client(api_key=api_key)
         
-        # We bake the instructions directly into the message for Gemma
-        persona_prompt = f"""Instruction: You are a chill, supportive wellness buddy. 
-        Keep your response under 2 sentences. Be concise and friendly.
-        
-        User says: {user_message}"""
+        # THE PERSONA: Casual, multilingual, supportive, and safe
+        persona = (
+            "You are 'Buddy', a chill, empathetic college companion. "
+            "Use casual language (bro, yaar, buddy). Support students with hostel life, "
+            "academic stress, and project deadlines. If they speak Hindi or Bengali, "
+            "respond in kind naturally. Never judge. Keep it brief (2-3 sentences max)."
+        )
 
         response = client.models.generate_content(
-            model=MODEL_ID,
-            contents=persona_prompt,
-            config={
-                "max_output_tokens": 100 # Tight limit for short answers
-            }
+            model=MODEL_ID, 
+            contents=f"{persona}\nUser: {user_message}"
         )
-        
         bot_response = response.text 
+
+        # Real-time Sentiment Tracking
         score = analyzer.polarity_scores(user_message)['compound']
 
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO chats (session_id, user_message, bot_response, sentiment_score) VALUES (?, ?, ?, ?)",
-                         (session.get("session_id", "anon"), user_message, bot_response, score))
+        # Save to DB for the tracker
+        with get_db() as conn:
+            conn.execute(
+                "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
+                (user_message, bot_response, score)
+            )
+            conn.commit()
 
-        return jsonify({"response": bot_response})
+        return jsonify({"response": bot_response, "score": score})
 
     except Exception as e:
-        print(f"ERROR: {e}")
-        return jsonify({"response": "I'm having a quick reset. Try again in 5 seconds?"})
+        print(f"DEPLOYMENT ERROR: {e}") # This shows in your Render logs
+        return jsonify({"response": "System's a bit tired. Let's try again in a sec?", "score": 0})
+
+@app.route("/clear_history", methods=["POST"])
+def clear_history():
+    try:
+        with get_db() as conn:
+            conn.execute("DELETE FROM chats")
+            conn.commit()
+        return jsonify({"status": "History Nuked! 100% Private."})
+    except Exception as e:
+        return jsonify({"status": "Error clearing history"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    # Important for Render deployment
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
