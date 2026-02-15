@@ -1,4 +1,8 @@
 import os
+# DEBUG: This will print to your Render logs (not the browser)
+print(f"DEBUG: GEMINI_API_KEY is set: {bool(os.environ.get('GEMINI_API_KEY'))}")
+if os.environ.get('GEMINI_API_KEY'):
+    print(f"DEBUG: Key starts with: {os.environ.get('GEMINI_API_KEY')[:5]}...")
 import sqlite3
 import uuid
 from flask import Flask, render_template, request, jsonify, session
