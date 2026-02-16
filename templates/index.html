@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellness Buddy | Safe Space</title>
+    <title>Wellness Buddy | Gemini 2.0</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #4A90E2; --secondary: #50E3C2; --danger: #FF6B6B; --bg: #F4F7F6; }
@@ -25,23 +25,23 @@
     <div class="sidebar">
         <h2 style="color: var(--primary);">Buddy Mode 🕺🏻</h2>
         <div class="card">
-            <strong>📊 Mood Tracker</strong>
+            <strong>📊 Real-time Vibe</strong>
             <canvas id="moodChart" height="150"></canvas>
         </div>
         <div class="card" style="border-color: var(--secondary);">
-            <strong>🧘 Chill Pill</strong>
-            <div id="zen-box">Slowly Inhale... and Exhale...</div>
-            <button class="btn" style="background: var(--secondary); color: white;" onclick="startZen()">Start Breathing</button>
+            <strong>🧘 Zen Mode</strong>
+            <div id="zen-box">Breathe in... Breathe out...</div>
+            <button class="btn" style="background: var(--secondary); color: white;" onclick="startZen()">Relax Now</button>
         </div>
-        <button class="btn" style="background: var(--danger); color: white; margin-top: auto;" onclick="nukeHistory()">Ghost Mode (Erase History)</button>
+        <button class="btn" style="background: var(--danger); color: white; margin-top: auto;" onclick="nukeHistory()">Ghost Mode (Erase)</button>
     </div>
 
     <div class="main-chat">
         <div class="chat-box" id="chat-box">
-            <div class="msg bot">What's up, yaar? Hostel life or exams giving you stress? I'm here to listen.</div>
+            <div class="msg bot">Yo! I'm your Buddy. Ready to talk about anything?</div>
         </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="Type here, bro..." onkeypress="if(event.key==='Enter') send()">
+            <input type="text" id="user-input" placeholder="Say something, bro..." onkeypress="if(event.key==='Enter') send()">
             <button class="btn" style="width: auto; background: var(--primary); color: white; border-radius: 30px; padding: 10px 25px;" onclick="send()">Send</button>
         </div>
     </div>
@@ -72,7 +72,7 @@
                 addMsg(data.response, 'bot');
                 updateChart(data.score);
             } catch (e) {
-                addMsg("Arre, something went wrong on my end. Try again?", 'bot');
+                addMsg("Arre yaar, check your internet. I'm stuck!", 'bot');
             }
         }
 
@@ -88,10 +88,6 @@
         function updateChart(score) {
             moodChart.data.labels.push('');
             moodChart.data.datasets[0].data.push(score);
-            if(moodChart.data.labels.length > 10) {
-                moodChart.data.labels.shift();
-                moodChart.data.datasets[0].data.shift();
-            }
             moodChart.update();
         }
 
@@ -102,7 +98,7 @@
         }
 
         async function nukeHistory() {
-            if(confirm("Erase all chats? Bro code: Your secrets stay safe.")) {
+            if(confirm("Erase all evidence?")) {
                 await fetch("/clear_history", { method: "POST" });
                 location.reload();
             }

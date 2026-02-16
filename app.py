@@ -8,13 +8,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "wellness_buddy_2026")
 DB_PATH = "chat_history.db"
 
-# Initialize tools
+# Initialize Tools
 analyzer = SentimentIntensityAnalyzer()
 
-# STABLE MODEL ID
-MODEL_ID = "gemini-1.5-flash"
+# STABLE 2.0 MODEL ID
+MODEL_ID = "gemini-2.0-flash"
 
 def init_db():
+    """Sets up the SQLite database for chat history."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS chats (
@@ -47,19 +48,18 @@ def chat():
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-             return jsonify({"response": "API Key is missing from Render settings!", "score": 0})
+             return jsonify({"response": "Missing API Key! Fix it in Render.", "score": 0})
 
-        # Initialize the client inside the route to ensure it uses the latest key
+        # Initialize GenAI Client for Gemini 2.0
         client = genai.Client(api_key=api_key)
         
         persona = (
             "You are 'Buddy', a chill, empathetic college companion. "
-            "Use casual language (bro, yaar, buddy). Support students with hostel life, "
-            "academic stress, and project deadlines. Respond in English/Hindi naturally. "
-            "Keep it very brief (max 2 sentences)."
+            "Use casual language (bro, yaar, buddy). Support students with "
+            "hostel life and exams. Keep it very brief (max 2 sentences)."
         )
 
-        # Generating content
+        # Gemini 2.0 Generation
         response = client.models.generate_content(
             model=MODEL_ID, 
             contents=f"{persona}\nUser: {user_message}"
@@ -67,11 +67,11 @@ def chat():
         
         bot_response = response.text 
 
-        # Calculate sentiment
+        # Calculate Sentiment using VADER
         vs = analyzer.polarity_scores(user_message)
         score = float(vs['compound'])
 
-        # Save to DB
+        # Log to Database
         with get_db() as conn:
             conn.execute(
                 "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
@@ -82,19 +82,13 @@ def chat():
         return jsonify({"response": bot_response, "score": score})
 
     except Exception as e:
-        # LOGGING THE ERROR TO RENDER CONSOLE
-        print(f"--- API ERROR START ---")
-        print(f"Type: {type(e).__name__}")
-        print(f"Details: {str(e)}")
-        print(f"--- API ERROR END ---")
+        # Detailed error log for Render console
+        print(f"--- API ERROR (2.0) --- {e}")
         
-        # Determine the user sentiment even if AI fails
-        vs = analyzer.polarity_scores(user_message)
-        fallback_score = float(vs['compound'])
-        
+        # Fallback response for Demo Safety
         return jsonify({
-            "response": "Arre yaar, my connection is a bit shaky. But I'm listening—I know things can be tough. Tell me more?",
-            "score": fallback_score
+            "response": "Arre yaar, my 2.0 brain is overthinking. But I'm listening—what's on your mind?",
+            "score": 0
         })
 
 @app.route("/clear_history", methods=["POST"])
