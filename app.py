@@ -11,7 +11,7 @@ DB_PATH = "chat_history.db"
 # Initialize tools
 analyzer = SentimentIntensityAnalyzer()
 
-# Use the most stable model string for the SDK
+# STABLE MODEL ID
 MODEL_ID = "gemini-1.5-flash"
 
 def init_db():
@@ -46,19 +46,25 @@ def chat():
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+             return jsonify({"response": "API Key is missing from Render settings!", "score": 0})
+
+        # Initialize the client inside the route to ensure it uses the latest key
         client = genai.Client(api_key=api_key)
         
         persona = (
             "You are 'Buddy', a chill, empathetic college companion. "
             "Use casual language (bro, yaar, buddy). Support students with hostel life, "
-            "academic stress, and project deadlines. Keep it brief (2 sentences max)."
+            "academic stress, and project deadlines. Respond in English/Hindi naturally. "
+            "Keep it very brief (max 2 sentences)."
         )
 
-        # Generating content using the stable model ID
+        # Generating content
         response = client.models.generate_content(
             model=MODEL_ID, 
             contents=f"{persona}\nUser: {user_message}"
         )
+        
         bot_response = response.text 
 
         # Calculate sentiment
@@ -76,11 +82,19 @@ def chat():
         return jsonify({"response": bot_response, "score": score})
 
     except Exception as e:
-        print(f"ERROR: {e}")
-        # EMERGENCY FALLBACK: If API fails, Buddy still responds!
+        # LOGGING THE ERROR TO RENDER CONSOLE
+        print(f"--- API ERROR START ---")
+        print(f"Type: {type(e).__name__}")
+        print(f"Details: {str(e)}")
+        print(f"--- API ERROR END ---")
+        
+        # Determine the user sentiment even if AI fails
+        vs = analyzer.polarity_scores(user_message)
+        fallback_score = float(vs['compound'])
+        
         return jsonify({
-            "response": "Arre yaar, my brain is a bit jammed from the exams. But I'm listening—tell me what's on your mind?",
-            "score": 0
+            "response": "Arre yaar, my connection is a bit shaky. But I'm listening—I know things can be tough. Tell me more?",
+            "score": fallback_score
         })
 
 @app.route("/clear_history", methods=["POST"])
