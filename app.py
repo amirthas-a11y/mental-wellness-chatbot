@@ -10,10 +10,11 @@ DB_PATH = "chat_history.db"
 
 # Initialize tools
 analyzer = SentimentIntensityAnalyzer()
+
+# Use the most stable model string for the SDK
 MODEL_ID = "gemini-1.5-flash"
 
 def init_db():
-    """Creates the database table if it doesn't exist."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS chats (
@@ -26,7 +27,6 @@ def init_db():
         ''')
         conn.commit()
 
-# Initialize DB on startup
 init_db()
 
 def get_db():
@@ -46,28 +46,26 @@ def chat():
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            return jsonify({"response": "API Key missing! Check Render environment variables.", "score": 0})
-
         client = genai.Client(api_key=api_key)
         
         persona = (
             "You are 'Buddy', a chill, empathetic college companion. "
             "Use casual language (bro, yaar, buddy). Support students with hostel life, "
-            "academic stress, and project deadlines. If they speak Hindi or Bengali, "
-            "respond in kind naturally. Never judge. Keep it brief (2-3 sentences max)."
+            "academic stress, and project deadlines. Keep it brief (2 sentences max)."
         )
 
+        # Generating content using the stable model ID
         response = client.models.generate_content(
             model=MODEL_ID, 
             contents=f"{persona}\nUser: {user_message}"
         )
         bot_response = response.text 
 
-        # Correctly calculate sentiment score
+        # Calculate sentiment
         vs = analyzer.polarity_scores(user_message)
-        score = float(vs['compound']) # Range is -1.0 to 1.0
+        score = float(vs['compound'])
 
+        # Save to DB
         with get_db() as conn:
             conn.execute(
                 "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
@@ -79,17 +77,18 @@ def chat():
 
     except Exception as e:
         print(f"ERROR: {e}")
-        return jsonify({"response": "System's a bit tired. Let's try again?", "score": 0})
+        # EMERGENCY FALLBACK: If API fails, Buddy still responds!
+        return jsonify({
+            "response": "Arre yaar, my brain is a bit jammed from the exams. But I'm listening—tell me what's on your mind?",
+            "score": 0
+        })
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
-    try:
-        with get_db() as conn:
-            conn.execute("DELETE FROM chats")
-            conn.commit()
-        return jsonify({"status": "History Nuked!"})
-    except Exception as e:
-        return jsonify({"status": "Error"}), 500
+    with get_db() as conn:
+        conn.execute("DELETE FROM chats")
+        conn.commit()
+    return jsonify({"status": "History Nuked!"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
