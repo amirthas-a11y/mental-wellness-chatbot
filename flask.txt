@@ -1,5 +1,4 @@
 flask
-transformers
-torch
+google-genai
 vaderSentiment
 gunicorn
