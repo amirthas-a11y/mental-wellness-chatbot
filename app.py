@@ -1,17 +1,15 @@
 import os
 import sqlite3
-import uuid
-from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "wellness_buddy_2026")
-DB_PATH = "chats.db" # Updated to match your file name
+DB_PATH = "chat_history.db"
 
 analyzer = SentimentIntensityAnalyzer()
-MODEL_ID = "gemini-1.5-flash" # Higher quota for demo
+MODEL_ID = "gemini-1.5-flash" # Use 1.5 for the demo to avoid 429 errors
 
 def get_db():
     return sqlite3.connect(DB_PATH)
@@ -24,13 +22,13 @@ def index():
 def chat():
     user_data = request.json
     user_message = user_data.get("message", "").strip()
-    session_id = user_data.get("session_id", str(uuid.uuid4()))
     
     if not user_message:
         return jsonify({"response": "I'm listening, bro. Go ahead.", "score": 0})
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
+        # Initialize the client inside the route to ensure it catches the key
         client = genai.Client(api_key=api_key)
         
         persona = "You are 'Buddy', a chill college companion. Use casual language (bro, yaar). Keep it brief."
@@ -44,19 +42,17 @@ def chat():
         vs = analyzer.polarity_scores(user_message)
         score = float(vs['compound'])
 
-        # Log to Database matching your exact schema
         with get_db() as conn:
             conn.execute(
-                "INSERT INTO chats (session_id, user_message, bot_response, sentiment_score, timestamp) VALUES (?, ?, ?, ?, ?)",
-                (session_id, user_message, bot_response, score, datetime.now().isoformat())
+                "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
+                (user_message, bot_response, score)
             )
             conn.commit()
 
-        return jsonify({"response": bot_response, "score": score, "session_id": session_id})
+        return jsonify({"response": bot_response, "score": score})
 
     except Exception as e:
-        if "429" in str(e):
-            return jsonify({"response": "Too many requests! Wait 30 seconds, buddy.", "score": 0})
+        print(f"DEBUG ERROR: {e}") # This shows up in Render Logs
         return jsonify({"response": "Connection shaky, but I'm here.", "score": 0})
 
 if __name__ == "__main__":
