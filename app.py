@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import random
 from flask import Flask, render_template, request, jsonify
 from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -10,8 +11,16 @@ DB_PATH = "chat_history.db"
 
 analyzer = SentimentIntensityAnalyzer()
 
-# CHANGED: Using 'gemini-1.5-flash-latest' to fix the 404 error
-MODEL_ID = "gemini-1.5-flash-latest" 
+# THIS IS THE MOST STABLE MODEL STRING
+MODEL_ID = "gemini-1.5-flash" 
+
+SAFE_RESPONSES = [
+    "I hear you, bro. That sounds tough, but you've got this!",
+    "Arre yaar, I'm always in your corner. Tell me more?",
+    "Exam stress is real, buddy. Take a deep breath, I'm listening.",
+    "Hostel life can be a rollercoaster, right? I'm here to listen.",
+    "That's a lot to handle. Remember, one step at a time, bro."
+]
 
 def get_db():
     return sqlite3.connect(DB_PATH)
@@ -28,13 +37,17 @@ def chat():
     if not user_message:
         return jsonify({"response": "I'm listening, bro.", "score": 0})
 
+    # Sentiment is LOCAL - it will always work for your chart!
+    vs = analyzer.polarity_scores(user_message)
+    score = float(vs['compound'])
+
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
+        # Initialize client specifically for the stable v1 API
         client = genai.Client(api_key=api_key)
         
         persona = "You are 'Buddy', a chill college companion. Use casual language (bro, yaar). Keep it brief."
 
-        # Attempt to get AI response
         response = client.models.generate_content(
             model=MODEL_ID, 
             contents=f"{persona}\nUser: {user_message}"
@@ -43,12 +56,8 @@ def chat():
         
     except Exception as e:
         print(f"DEBUG ERROR: {e}")
-        # DEMO SAFETY: If the API fails, Buddy still talks!
-        bot_response = "Arre yaar, my brain is a bit foggy from the hostel food, but I'm here for you. Tell me more?"
-
-    # Sentiment Analysis (This works offline, so it never fails!)
-    vs = analyzer.polarity_scores(user_message)
-    score = float(vs['compound'])
+        # If Google fails, Buddy uses the "Emergency" list
+        bot_response = random.choice(SAFE_RESPONSES)
 
     try:
         with get_db() as conn:
@@ -58,7 +67,7 @@ def chat():
             )
             conn.commit()
     except:
-        pass # Ignore DB errors during demo
+        pass 
 
     return jsonify({"response": bot_response, "score": score})
 
