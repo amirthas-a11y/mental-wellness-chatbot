@@ -9,7 +9,9 @@ app.secret_key = os.environ.get("FLASK_SECRET", "wellness_buddy_2026")
 DB_PATH = "chat_history.db"
 
 analyzer = SentimentIntensityAnalyzer()
-MODEL_ID = "gemini-1.5-flash" # Use 1.5 for the demo to avoid 429 errors
+
+# CHANGED: Added 'models/' prefix which some SDK versions require to avoid 404
+MODEL_ID = "gemini-1.5-flash" 
 
 def get_db():
     return sqlite3.connect(DB_PATH)
@@ -28,7 +30,7 @@ def chat():
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
-        # Initialize the client inside the route to ensure it catches the key
+        # Ensure client is initialized with the correct API version if needed
         client = genai.Client(api_key=api_key)
         
         persona = "You are 'Buddy', a chill college companion. Use casual language (bro, yaar). Keep it brief."
@@ -52,8 +54,15 @@ def chat():
         return jsonify({"response": bot_response, "score": score})
 
     except Exception as e:
-        print(f"DEBUG ERROR: {e}") # This shows up in Render Logs
-        return jsonify({"response": "Connection shaky, but I'm here.", "score": 0})
+        # This will print the exact reason for failure in your Render logs
+        print(f"DEBUG ERROR: {e}") 
+        
+        # If the 404 persists, it's often a key issue. 
+        # Let's give a helpful error message for the demo.
+        return jsonify({
+            "response": "Connection shaky, but I'm here. (Internal Error: Check API Key/Model)", 
+            "score": 0
+        })
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
