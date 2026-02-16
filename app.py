@@ -10,7 +10,7 @@ DB_PATH = "chat_history.db"
 
 # Initialize tools
 analyzer = SentimentIntensityAnalyzer()
-MODEL_ID = "gemini-2.0-flash" 
+MODEL_ID = "gemini-1.5-flash"
 
 def init_db():
     """Creates the database table if it doesn't exist."""
