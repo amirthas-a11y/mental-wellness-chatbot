@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import random
-import requests  # Use standard requests instead of the buggy SDK
+import requests
 from flask import Flask, render_template, request, jsonify
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -34,26 +34,28 @@ def chat():
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
-        # FORCING THE STABLE V1 URL MANUALLY
+        # Ensure we are using the Stable V1 URL
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
         
+        # Simplified payload structure
         payload = {
             "contents": [{
-                "parts": [{
-                    "text": f"You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences. User says: {user_message}"
-                }]
+                "parts": [{"text": f"You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences. User says: {user_message}"}]
             }]
         }
 
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, json=payload)
         res_json = response.json()
 
-        # Extracting the text from the raw response
-        bot_response = res_json['candidates'][0]['content']['parts'][0]['text']
+        # Check if Google sent an error instead of a response
+        if 'error' in res_json:
+            print(f"GOOGLE API ERROR: {res_json['error']['message']}")
+            bot_response = random.choice(SAFE_RESPONSES)
+        else:
+            bot_response = res_json['candidates'][0]['content']['parts'][0]['text']
         
     except Exception as e:
-        print(f"DIRECT API ERROR: {e}")
+        print(f"SYSTEM ERROR: {e}")
         bot_response = random.choice(SAFE_RESPONSES)
 
     try:
