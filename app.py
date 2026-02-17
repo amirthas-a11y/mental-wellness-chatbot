@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import random
-import google.generativeai as genai
+import requests  # Use standard requests instead of the buggy SDK
 from flask import Flask, render_template, request, jsonify
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -11,7 +11,6 @@ DB_PATH = "chat_history.db"
 
 analyzer = SentimentIntensityAnalyzer()
 
-# Safety Responses (Fallback)
 SAFE_RESPONSES = [
     "I hear you, bro. That sounds tough, but you've got this!",
     "Arre yaar, I'm always in your corner. Tell me more?",
@@ -35,20 +34,26 @@ def chat():
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
+        # FORCING THE STABLE V1 URL MANUALLY
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
         
-        # FORCING VERSION 1 (STABLE) AND REST TRANSPORT
-        genai.configure(api_key=api_key, transport='rest')
-        
-        # Using the absolute model path to avoid the 404
-        model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
-        
-        persona = "You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences."
-        response = model.generate_content(f"{persona}\nUser: {user_message}")
-        
-        bot_response = response.text 
+        payload = {
+            "contents": [{
+                "parts": [{
+                    "text": f"You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences. User says: {user_message}"
+                }]
+            }]
+        }
+
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(url, headers=headers, json=payload)
+        res_json = response.json()
+
+        # Extracting the text from the raw response
+        bot_response = res_json['candidates'][0]['content']['parts'][0]['text']
         
     except Exception as e:
-        print(f"STABLE LOG ERROR: {e}")
+        print(f"DIRECT API ERROR: {e}")
         bot_response = random.choice(SAFE_RESPONSES)
 
     try:
