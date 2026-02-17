@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import random
-import google.generativeai as genai  # SWITCHED TO STABLE
+import google.generativeai as genai
 from flask import Flask, render_template, request, jsonify
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -11,19 +11,12 @@ DB_PATH = "chat_history.db"
 
 analyzer = SentimentIntensityAnalyzer()
 
-# Safety Responses (Buddy will use these if the API fails)
+# Safety Responses (Fallback)
 SAFE_RESPONSES = [
     "I hear you, bro. That sounds tough, but you've got this!",
     "Arre yaar, I'm always in your corner. Tell me more?",
     "Exam stress is real, buddy. Take a deep breath, I'm listening."
 ]
-
-# Configure the STABLE API
-api_key = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=api_key)
-
-def get_db():
-    return sqlite3.connect(DB_PATH)
 
 @app.route("/")
 def index():
@@ -41,23 +34,27 @@ def chat():
     score = float(vs['compound'])
 
     try:
-        # This call uses the STABLE v1 API path
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        persona = "You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences."
+        api_key = os.environ.get("GEMINI_API_KEY")
         
+        # FORCING VERSION 1 (STABLE) AND REST TRANSPORT
+        genai.configure(api_key=api_key, transport='rest')
+        
+        # Using the absolute model path to avoid the 404
+        model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
+        
+        persona = "You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences."
         response = model.generate_content(f"{persona}\nUser: {user_message}")
+        
         bot_response = response.text 
         
     except Exception as e:
-        print(f"STABLE API ERROR: {e}")
+        print(f"STABLE LOG ERROR: {e}")
         bot_response = random.choice(SAFE_RESPONSES)
 
     try:
-        with get_db() as conn:
-            conn.execute(
-                "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
-                (user_message, bot_response, score)
-            )
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
+                        (user_message, bot_response, score))
             conn.commit()
     except:
         pass 
