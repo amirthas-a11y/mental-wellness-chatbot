@@ -1,21 +1,37 @@
 import os
 import sqlite3
-import random
-import requests
 from flask import Flask, render_template, request, jsonify
+from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "wellness_buddy_2026")
 DB_PATH = "chat_history.db"
 
+# Initialize Tools
 analyzer = SentimentIntensityAnalyzer()
 
-SAFE_RESPONSES = [
-    "I hear you, bro. That sounds tough, but you've got this!",
-    "Arre yaar, I'm always in your corner. Tell me more?",
-    "Exam stress is real, buddy. Take a deep breath, I'm listening."
-]
+# STABLE 2.0 MODEL ID
+MODEL_ID = "gemini-2.0-flash"
+
+def init_db():
+    """Sets up the SQLite database for chat history."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                user_message TEXT,
+                bot_response TEXT,
+                sentiment_score REAL
+            )
+        ''')
+        conn.commit()
+
+init_db()
+
+def get_db():
+    return sqlite3.connect(DB_PATH)
 
 @app.route("/")
 def index():
@@ -27,46 +43,61 @@ def chat():
     user_message = user_data.get("message", "").strip()
     
     if not user_message:
-        return jsonify({"response": "I'm listening, bro.", "score": 0})
-
-    vs = analyzer.polarity_scores(user_message)
-    score = float(vs['compound'])
+        return jsonify({"response": "I'm listening, bro. Go ahead.", "score": 0})
 
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
-        # Ensure we are using the Stable V1 URL
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+        if not api_key:
+             return jsonify({"response": "Missing API Key! Fix it in Render.", "score": 0})
+
+        # Initialize GenAI Client for Gemini 2.0
+        client = genai.Client(api_key=api_key)
         
-        # Simplified payload structure
-        payload = {
-            "contents": [{
-                "parts": [{"text": f"You are 'Buddy', a chill college friend. Use casual language (bro, yaar). Max 2 sentences. User says: {user_message}"}]
-            }]
-        }
+        persona = (
+            "You are 'Buddy', a chill, empathetic college companion. "
+            "Use casual language (bro, yaar, buddy). Support students with "
+            "hostel life and exams. Keep it very brief (max 2 sentences)."
+        )
 
-        response = requests.post(url, json=payload)
-        res_json = response.json()
-
-        # Check if Google sent an error instead of a response
-        if 'error' in res_json:
-            print(f"GOOGLE API ERROR: {res_json['error']['message']}")
-            bot_response = random.choice(SAFE_RESPONSES)
-        else:
-            bot_response = res_json['candidates'][0]['content']['parts'][0]['text']
+        # Gemini 2.0 Generation
+        response = client.models.generate_content(
+            model=MODEL_ID, 
+            contents=f"{persona}\nUser: {user_message}"
+        )
         
-    except Exception as e:
-        print(f"SYSTEM ERROR: {e}")
-        bot_response = random.choice(SAFE_RESPONSES)
+        bot_response = response.text 
 
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
-                        (user_message, bot_response, score))
+        # Calculate Sentiment using VADER
+        vs = analyzer.polarity_scores(user_message)
+        score = float(vs['compound'])
+
+        # Log to Database
+        with get_db() as conn:
+            conn.execute(
+                "INSERT INTO chats (user_message, bot_response, sentiment_score) VALUES (?, ?, ?)",
+                (user_message, bot_response, score)
+            )
             conn.commit()
-    except:
-        pass 
 
-    return jsonify({"response": bot_response, "score": score})
+        return jsonify({"response": bot_response, "score": score})
+
+    except Exception as e:
+        # Detailed error log for Render console
+        print(f"--- API ERROR (2.0) --- {e}")
+        
+        # Fallback response for Demo Safety
+        return jsonify({
+            "response": "Arre yaar, my 2.0 brain is overthinking. But I'm listening—what's on your mind?",
+            "score": 0
+        })
+
+@app.route("/clear_history", methods=["POST"])
+def clear_history():
+    with get_db() as conn:
+        conn.execute("DELETE FROM chats")
+        conn.commit()
+    return jsonify({"status": "History Nuked!"})
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
