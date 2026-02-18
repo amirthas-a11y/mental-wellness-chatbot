@@ -3,106 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellness Buddy | Gemini 2.0</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Buddy | Wellness Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #4A90E2; --secondary: #50E3C2; --danger: #FF6B6B; --bg: #F4F7F6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .sidebar { width: 320px; background: white; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 15px; }
-        .card { background: #f9f9f9; padding: 15px; border-radius: 12px; border-left: 5px solid var(--primary); }
-        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .main-chat { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #F0F2F5; }
-        .chat-box { flex: 1; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .msg { padding: 12px 18px; border-radius: 15px; max-width: 80%; line-height: 1.4; word-wrap: break-word; }
+        :root {
+            --bg: #f8fafc;
+            --primary: #6366f1;
+            --glass: rgba(255, 255, 255, 0.95);
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f1f5f9 100%);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .dashboard {
+            width: 1000px;
+            height: 700px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            background: #fdfdff;
+            padding: 30px 20px;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .brand { font-size: 22px; font-weight: 600; color: var(--primary); margin-bottom: 10px; }
+
+        /* History List */
+        .history-section { flex-grow: 1; overflow-y: auto; }
+        .history-label { font-size: 11px; font-weight: 600; color: var(--text-sub); text-transform: uppercase; margin-bottom: 10px; }
+        .history-item {
+            padding: 12px;
+            border-radius: 12px;
+            background: #fff;
+            border: 1px solid #f1f5f9;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item:hover { background: #f1f5f9; border-color: var(--primary); }
+
+        /* Status Cards */
+        .status-card {
+            background: white;
+            padding: 15px;
+            border-radius: 16px;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .card-val { font-size: 18px; font-weight: 600; margin-top: 5px; }
+        .mood-pos { color: #10b981; } .mood-neu { color: #f59e0b; } .mood-neg { color: #ef4444; }
+
+        /* Main Chat Area */
+        .main-chat { display: flex; flex-direction: column; background: white; }
+        #chat-window { flex-grow: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+        .bot { background: #f1f5f9; align-self: flex-start; border-bottom-left-radius: 2px; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .bot { background: #E8E8E8; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .input-area { margin-top: 15px; display: flex; gap: 10px; background: white; padding: 10px; border-radius: 40px; }
-        input { flex: 1; padding: 10px 20px; border: none; outline: none; font-size: 16px; }
-        #zen-box { display: none; text-align: center; padding: 15px; background: #e0f7f1; border-radius: 10px; color: #2d6a4f; font-weight: bold; }
+
+        .input-bar { padding: 20px 30px; border-top: 1px solid #f1f5f9; display: flex; gap: 10px; }
+        input { flex-grow: 1; padding: 12px 18px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; }
+        button { padding: 12px 24px; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; }
     </style>
 </head>
 <body>
+
+<div class="dashboard">
     <div class="sidebar">
-        <h2 style="color: var(--primary);">Buddy Mode 🕺🏻</h2>
-        <div class="card">
-            <strong>📊 Real-time Vibe</strong>
-            <canvas id="moodChart" height="150"></canvas>
+        <div class="brand">Buddy AI</div>
+        
+        <div class="history-section">
+            <div class="history-label">Recent Conversations</div>
+            <div id="history-list">
+                </div>
         </div>
-        <div class="card" style="border-color: var(--secondary);">
-            <strong>🧘 Zen Mode</strong>
-            <div id="zen-box">Breathe in... Breathe out...</div>
-            <button class="btn" style="background: var(--secondary); color: white;" onclick="startZen()">Relax Now</button>
+
+        <div class="status-card">
+            <div class="history-label" style="margin-bottom: 2px;">Vibe</div>
+            <div id="vibe-text" class="card-val mood-neu">Waiting...</div>
         </div>
-        <button class="btn" style="background: var(--danger); color: white; margin-top: auto;" onclick="nukeHistory()">Ghost Mode (Erase)</button>
+
+        <div class="status-card">
+            <div class="history-label" style="margin-bottom: 2px;">Score</div>
+            <div id="vibe-score" class="card-val" style="font-family: monospace;">0.00</div>
+        </div>
     </div>
 
     <div class="main-chat">
-        <div class="chat-box" id="chat-box">
-            <div class="msg bot">Yo! I'm your Buddy. Ready to talk about anything?</div>
+        <div id="chat-window">
+            <div class="bubble bot">Welcome back. How's your mental energy today?</div>
         </div>
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Say something, bro..." onkeypress="if(event.key==='Enter') send()">
-            <button class="btn" style="width: auto; background: var(--primary); color: white; border-radius: 30px; padding: 10px 25px;" onclick="send()">Send</button>
+        <div class="input-bar">
+            <input type="text" id="user-input" placeholder="Type to chat..." autocomplete="off">
+            <button onclick="sendMessage()">Send</button>
         </div>
     </div>
+</div>
 
-    <script>
-        const ctx = document.getElementById('moodChart').getContext('2d');
-        let moodChart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: ['Start'], datasets: [{ data: [0], borderColor: '#4A90E2', tension: 0.4, fill: true, backgroundColor: 'rgba(74,144,226,0.1)' }] },
-            options: { plugins: { legend: false }, scales: { y: { min: -1, max: 1, ticks: { stepSize: 1, callback: v => v===1?'😊':v===0?'😐':v===-1?'😔':'' } }, x: { display: false } } }
-        });
+<script>
+    let sessionStarted = false;
 
-        async function send() {
-            const input = document.getElementById("user-input");
-            const val = input.value.trim();
-            if(!val) return;
+    async function sendMessage() {
+        const input = document.getElementById('user-input');
+        const text = input.value.trim();
+        if (!text) return;
 
-            addMsg(val, 'user');
-            input.value = "";
-
-            try {
-                const res = await fetch("/chat", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({message: val})
-                });
-                const data = await res.json();
-                addMsg(data.response, 'bot');
-                updateChart(data.score);
-            } catch (e) {
-                addMsg("Arre yaar, check your internet. I'm stuck!", 'bot');
-            }
+        // Add history entry only on the FIRST message of a session
+        if (!sessionStarted) {
+            addToHistory(text);
+            sessionStarted = true;
         }
 
-        function addMsg(text, type) {
-            const box = document.getElementById("chat-box");
-            const div = document.createElement("div");
-            div.className = `msg ${type}`;
-            div.innerText = text;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
-        }
+        appendBubble(text, 'user');
+        input.value = '';
 
-        function updateChart(score) {
-            moodChart.data.labels.push('');
-            moodChart.data.datasets[0].data.push(score);
-            moodChart.update();
+        try {
+            const res = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text })
+            });
+            const data = await res.json();
+            
+            appendBubble(data.response, 'bot');
+            updateUI(data.score);
+        } catch (e) {
+            appendBubble("I'm having trouble connecting. Try again?", 'bot');
         }
+    }
 
-        function startZen() {
-            const box = document.getElementById("zen-box");
-            box.style.display = "block";
-            setTimeout(() => { box.style.display = "none"; }, 10000);
-        }
+    function appendBubble(text, type) {
+        const win = document.getElementById('chat-window');
+        const b = document.createElement('div');
+        b.className = `bubble ${type}`;
+        b.innerText = text;
+        win.appendChild(b);
+        win.scrollTop = win.scrollHeight;
+    }
 
-        async function nukeHistory() {
-            if(confirm("Erase all evidence?")) {
-                await fetch("/clear_history", { method: "POST" });
-                location.reload();
-            }
+    function updateUI(score) {
+        const vText = document.getElementById('vibe-text');
+        const vScore = document.getElementById('vibe-score');
+        vScore.innerText = score.toFixed(2);
+
+        if (score >= 0.2) {
+            vText.innerText = "Positive ✨";
+            vText.className = "card-val mood-pos";
+        } else if (score <= -0.2) {
+            vText.innerText = "Stressed 🌧️";
+            vText.className = "card-val mood-neg";
+        } else {
+            vText.innerText = "Neutral ☁️";
+            vText.className = "card-val mood-neu";
         }
-    </script>
+    }
+
+    // Function to add a snippet to the sidebar
+    function addToHistory(text) {
+        const list = document.getElementById('history-list');
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        // Show only first 25 characters
+        item.innerText = text.length > 25 ? text.substring(0, 25) + '...' : text;
+        
+        // Add to top of list
+        list.insertBefore(item, list.firstChild);
+    }
+
+    document.getElementById('user-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+</script>
+
 </body>
 </html>
