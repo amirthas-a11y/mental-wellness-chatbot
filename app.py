@@ -1,8 +1,9 @@
 import os
 import time
 import sqlite3
+import random  # <--- ADD THIS LINE HERE
+import requests # Also make sure requests is imported if you're using it for the URL call!
 from flask import Flask, render_template, request, jsonify, session
-from google import genai
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 app = Flask(__name__)
